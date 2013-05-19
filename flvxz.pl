@@ -25,7 +25,9 @@ die "Invalid response" unless @urls;
 #print "[ $videos{$_} ] $_\n" for (@urls);
 
 my $highest = ($urls[0] =~ s/.*hd=//r);
-my @best_set = grep { /hd=$highest/ } @urls;
+my @best_set = sort {
+    $videos{$a} cmp $videos{$b}
+} grep { /hd=$highest/ && $videos{$_} =~ /.flv$/i } @urls;
 
 # 1. mplayer
 &mplayer (@best_set) if $opts{mplayer};
@@ -34,13 +36,14 @@ my @best_set = grep { /hd=$highest/ } @urls;
 &aria2c (@best_set) if $opts{aria2c};
 
 # 3. no selection
-print "[ $videos{$_} ] $_\n" for (@best_set);
+print "[ $videos{$_} ] $_\n" for (@urls);
 
 ####
 
 sub aria2c
 {
     print "aria2c '$_' -o '$videos{$_}'\n" for @_;
+    exit (0);
 };
 
 sub mplayer
@@ -50,6 +53,7 @@ sub mplayer
     unshift @urls, "-cache";
 
     system ("mplayer", @urls);
+    exit (0);
 }
 
 sub get_one
@@ -61,9 +65,9 @@ sub get_one
 	my $resp = $ua->get ('http://www.flvxz.com/getFlv.php?url=' . encode_base64 ($url));
 	for (split q{</a>}, $resp->decoded_content)
 	{
-		if ($_ =~ /red">\[(.*)\]<\/span.*href="([^"]+)"/)
+		if ($_ =~ /href="([^"]+)".*data-clipboard-text="([^"]+)"/)
 		{
-			$data{$2} = $1;
+			$data{$1} = $2;
 		}
 	}
 
