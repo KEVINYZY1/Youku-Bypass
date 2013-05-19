@@ -1,38 +1,24 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 use strict;
+use warnings;
 use utf8;
 use MIME::Base64;
 use Getopt::Long;
 use LWP::UserAgent;
 
-# Options
 my %opts = ();
-# UA
 my $ua = LWP::UserAgent->new;
-# Choosen items
 my @choosen = ();
-
-sub searchItems
-{
-	my $keyword = shift or die;
-	my $r = $ua->get ('http://tip.soku.com/search_keys?site=2&h=11&query=' . $keyword);
-	if ($r->is_success)
-	{
-		if ($r->decoded_content =~ /^aa.suggestUpdate\((.*)\)$/)
-		{
-			print $1, "\n";
-		}
-	}
-};
 
 sub getUrlMapping
 {
-	my %d = ();
 	my $url = shift or die;
 	$url = 'http://' . $url unless $url =~ /http:/;
-	my $r = $ua->get ('http://www.flvxz.com/getFlv.php?url=' . encode_base64 ($url));
-	for (split q{</a>}, $r->decoded_content)
+	
+    my %d = ();
+	my $resp = $ua->get ('http://www.flvxz.com/getFlv.php?url=' . encode_base64 ($url));
+	for (split q{</a>}, $resp->decoded_content)
 	{
 		if ($_ =~ /red">\[(.*)\]<\/span.*href="([^"]+)"/)
 		{
@@ -47,7 +33,9 @@ sub help
 {
 	print<<EOF
 
-	Youku Simple:  locate video URL
+	Youku Simple:  Locate video URL
+
+    usage: ./youku_simple.pl [options] [url]
 
 	-help      you're reading this baby!
 
@@ -66,6 +54,7 @@ GetOptions (\%opts, 'mplayer|m', 'select|s', 'pattern|p=s', 'help|h', 'aria2c|a'
 $#ARGV eq 0 or help;
 
 my $hashref = getUrlMapping ($ARGV[0]);
+#@list = ("&hd=1", "fff", "&hd=2"); [((reverse sort grep /&hd=/, @list), (sort grep /^(?!&hd=)/, @list))]
 
 ###
 if ($opts{mplayer})
