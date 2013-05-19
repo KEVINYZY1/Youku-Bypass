@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
+use utf8;
 use MIME::Base64;
 use Getopt::Long;
 use LWP::UserAgent;
@@ -12,16 +13,30 @@ my $ua = LWP::UserAgent->new;
 # Choosen items
 my @choosen = ();
 
+sub searchItems
+{
+	my $keyword = shift or die;
+	my $r = $ua->get ('http://tip.soku.com/search_keys?site=2&h=11&query=' . $keyword);
+	if ($r->is_success)
+	{
+		if ($r->decoded_content =~ /^aa.suggestUpdate\((.*)\)$/)
+		{
+			print $1, "\n";
+		}
+	}
+};
+
 sub getUrlMapping
 {
 	my %d = ();
 	my $url = shift or die;
+	$url = 'http://' . $url unless $url =~ /http:/;
 	my $r = $ua->get ('http://www.flvxz.com/getFlv.php?url=' . encode_base64 ($url));
-	for (split /;/, $r->decoded_content)
+	for (split q{</a>}, $r->decoded_content)
 	{
-		if ($_ =~ /down\("(.*)","(.*)"/)
+		if ($_ =~ /red">\[(.*)\]<\/span.*href="([^"]+)"/)
 		{
-			$d{$2} = $1;
+			$d{$1} = $2;
 		}
 	}
 
@@ -32,13 +47,15 @@ sub help
 {
 	print<<EOF
 
-	Youku_simple:  locate video URL
+	Youku Simple:  locate video URL
+
+	-help      you're reading this baby!
 
 	-pattern   filter on segment name
-	-help      show this dialog
 	-aria2c    generate aria2c shell script
 
-	-select    show a selection box using zenity
+	-select    select preferred video with zenity
+    -mplayer   play video directly
 
 EOF
 	;
@@ -53,15 +70,19 @@ my $hashref = getUrlMapping ($ARGV[0]);
 ###
 if ($opts{mplayer})
 {
-	my @playlist = map { $hashref->{$_} } grep { /_hd_/ } sort keys $hashref;
-	system ("mplayer", @playlist);
+	my @playlist = map { $hashref->{$_} } grep { /高清/ } sort keys $hashref;
+	if (!@playlist)
+	{
+		@playlist = map { $hashref->{$_} } grep { /FLV/ } sort keys $hashref;
+	}
+	system ("mplayer", "-cache", "2000", @playlist);
 	exit (0);
 }
 
 ###
 if ($opts{select})
 {
-	my @args = ( 'zenity', '--list', '--checklist', '--column', 'Pick', '--column', 'File');
+	my @args = ('zenity', '--list', '--checklist', '--column', 'Pick', '--column', 'File');
 	for (sort keys %$hashref)
 	{
 		if ($opts{pattern} and $_ =~ /$opts{pattern}/)
@@ -88,7 +109,7 @@ else
 
 for (@choosen)
 {
-	if ( ! $opts{select} && $opts{pattern})
+	if (! $opts{select} && $opts{pattern})
 	{
 		next if $_ !~ /$opts{pattern}/;
 	}
