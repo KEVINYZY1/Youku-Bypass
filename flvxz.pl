@@ -21,7 +21,7 @@ my @urls = (sort {
     ($b =~ s/.*hd=//r) cmp ($a =~ s/.*hd=//r)
 } grep { /hd=/ } keys %videos, grep { !/hd=/ } keys %videos);
 
-die "Invalid response" unless @urls;
+die "Invalid response, try launch the script again ;-)" unless @urls;
 #print "[ $videos{$_} ] $_\n" for (@urls);
 
 my $highest = ($urls[0] =~ s/.*hd=//r);
@@ -29,21 +29,23 @@ my @best_set = sort {
     $videos{$a} cmp $videos{$b}
 } grep { /hd=$highest/ && $videos{$_} =~ /.flv$/i } @urls;
 
+# Empty set? Hmm
+@best_set = @urls if ! @best_set;
+
 # 1. mplayer
-&mplayer (@best_set) if $opts{mplayer};
+&mplayer (@best_set), exit (0) if $opts{mplayer};
 
 # 2. aria2c
-&aria2c (@best_set) if $opts{aria2c};
+&aria2c (@best_set), exit (0) if $opts{aria2c};
 
-# 3. no selection
-print "[ $videos{$_} ] $_\n" for (@urls);
+# 3. no selection, last resort?
+print "[ $videos{$_} ] $_\n" for (@best_set);
 
 ####
 
 sub aria2c
 {
     print "aria2c '$_' -o '$videos{$_}'\n" for @_;
-    exit (0);
 };
 
 sub mplayer
@@ -53,7 +55,6 @@ sub mplayer
     unshift @urls, "-cache";
 
     system ("mplayer", @urls);
-    exit (0);
 }
 
 sub get_one
@@ -64,11 +65,8 @@ sub get_one
     $url = 'http://' . $url unless $url =~ q{^http://};
 	my $resp = $ua->get ('http://www.flvxz.com/getFlv.php?url=' . encode_base64 ($url));
 	for (split q{</a>}, $resp->decoded_content)
-	{
-		if ($_ =~ /href="([^"]+)".*data-clipboard-text="([^"]+)"/)
-		{
-			$data{$1} = $2;
-		}
+    {
+        $data{$1} = $2 if /href="([^"]+)".*data-clipboard-text="([^"]+)"/;
 	}
 
     return %data;
@@ -79,10 +77,9 @@ sub help
 	print<<EOF
 
 Flvxz toolset, locate video urls
-
 [FYI: name resolution is broken on remote site, fuck them]
 
-usage: $0 [options] [url]
+Usage: $0 [options] [url]
 
     -help      you're reading this baby!
 
