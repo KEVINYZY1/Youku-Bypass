@@ -18,16 +18,15 @@ my %opts = ();
 
 my %videos = get_one ($ARGV[0]);
 my @urls = (sort {
-    ($b =~ s/.*hd=//r) cmp ($a =~ s/.*hd=//r)
+    ($b =~ m/[&?]hd=(\d+)/)[0] <=> ($a =~ /[&?]hd=(\d+)/)[0]
 } grep { /hd=/ } keys %videos, grep { !/hd=/ } keys %videos);
 
-die "Invalid response, try launch the script again ;-)" unless @urls;
-#print "[ $videos{$_} ] $_\n" for (@urls);
+die "Invalid response, try launch the script again (Or report bugs to moi) -_-! " unless @urls;
 
-my $highest = ($urls[0] =~ s/.*hd=//r);
+my $highest = ($urls[0] =~ /[&?]hd=(\d+)/)[0];
 my @best_set = sort {
     $videos{$a} cmp $videos{$b}
-} grep { /hd=$highest/ && $videos{$_} =~ /.flv$/i } @urls;
+} grep { /hd=$highest/ } @urls;
 
 # Empty set? Hmm
 @best_set = @urls if ! @best_set;
@@ -64,9 +63,14 @@ sub get_one
 
     $url = 'http://' . $url unless $url =~ q{^http://};
 	my $resp = $ua->get ('http://www.flvxz.com/getFlv.php?url=' . encode_base64 ($url));
-	for (split q{</a>}, $resp->decoded_content)
+	for (split q{<a }, $resp->decoded_content)
     {
-        $data{$1} = $2 if /href="([^"]+)".*data-clipboard-text="([^"]+)"/;
+        if (/href="([^"]+)"[^>]*>(.*)<\/a>/)
+        {
+            my ($url, $name) = ($1, $2);
+            next unless $url =~ /f\.youku\.com/ and $name =~ /\./;
+            $data{$url} = $name;
+        }
 	}
 
     return %data;
