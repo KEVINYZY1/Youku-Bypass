@@ -3,25 +3,29 @@
 use strict;
 use warnings;
 use utf8;
+use feature 'say';
+
 use lib '/secure/Common/src/cpan';
 use Getopt::Long;
 use Data::Dumper;
+use URI;
 use MIME::Base64;
 use LWP::UserAgent;
 
-my $ua = LWP::UserAgent->new;
+my $ua = LWP::UserAgent->new (agent => 'Mozilla/4.0', timeout => 3);
 my %opts = ();
 
-####
+&help unless GetOptions (\%opts, 'mplayer|m', 'select|s', 'pattern|p=s', 'help|h', 'aria2c|a') and $#ARGV ne -1;
 
-&help unless (GetOptions (\%opts, 'mplayer|m', 'select|s', 'pattern|p=s', 'help|h', 'aria2c|a') and $#ARGV ne -1);
+####
 
 my %videos = get_one ($ARGV[0]);
 my @urls = (sort {
     ($b =~ m/[&?]hd=(\d+)/)[0] <=> ($a =~ /[&?]hd=(\d+)/)[0]
 } grep { /hd=/ } keys %videos, grep { !/hd=/ } keys %videos);
 
-die "Invalid response, try launch the script again (Or report bugs to moi) -_-! " unless @urls;
+die "Invalid response, was the protocol changed?" unless @urls;
+#say "[ $videos{$_} ] $_" for (@urls);
 
 my $highest = ($urls[0] =~ /[&?]hd=(\d+)/)[0];
 my @best_set = sort {
@@ -38,13 +42,13 @@ my @best_set = sort {
 &aria2c (@best_set), exit (0) if $opts{aria2c};
 
 # 3. no selection, last resort?
-print "[ $videos{$_} ] $_\n" for (@best_set);
+say "[ $videos{$_} ] $_" for (@best_set);
 
 ####
 
 sub aria2c
 {
-    print "aria2c '$_' -o '$videos{$_}'\n" for @_;
+    say "aria2c '$_' -o '$videos{$_}'" for @_;
 };
 
 sub mplayer
@@ -59,10 +63,23 @@ sub mplayer
 sub get_one
 {
     my ($url) = @_;
-    my %data = ();
+    my ($uri, %data);
 
     $url = 'http://' . $url unless $url =~ q{^http://};
-	my $resp = $ua->get ('http://www.flvxz.com/getFlv.php?url=' . encode_base64 ($url));
+    $url =~ s|http://|http:##|;
+    $url = encode_base64 ($url);
+
+    # WTF?
+    $url =~ s/\n//g;
+
+    $uri = URI->new ('http://www.flvxz.com/getFlv.php');
+    $uri->query_form (url => $url);
+
+	my $resp = $ua->get ($uri, 'Referer' => 'http://www.flvxz.com');
+
+#    say 'URI ', $uri->as_string;
+#    say 'Returns ', $resp->decoded_content;
+
 	for (split q{<a }, $resp->decoded_content)
     {
         if (/href="([^"]+)"[^>]*>(.*)<\/a>/)
