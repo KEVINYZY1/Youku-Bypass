@@ -10,4 +10,4 @@ flvxz.pl -aria2c 'http://v.youku.com/v_show/id_XNDM0MjUwMjQ0.html'
 ---
 flvxz.pl -mplayer 'http://v.youku.com/v_show/id_XNDM0MjUwMjQ0.html'
 
-![截图] (https://github.com/CaledoniaProject/Youku-Bypass/raw/master/up.png "Desktop screenshot")
+![截图](https://github.com/CaledoniaProject/Youku-Bypass/raw/master/up.png "Desktop screenshot")
